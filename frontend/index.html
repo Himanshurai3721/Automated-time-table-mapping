@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>NeuralMap - AI Timetable System</title>
+    
+    <!-- Swiss Engineering Assets -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet"/>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        'swiss-navy': '#001A33',
+                        'swiss-red': '#E60000'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer base {
+            body {
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                background-color: #ffffff;
+                color: #001A33;
+            }
+        }
+        :root {
+            --swiss-navy: #001A33;
+            --swiss-red: #E60000;
+            --swiss-gray: #F2F2F2;
+        }
+        .view-section { display: none; }
+        .view-section.active { display: flex; }
+        .admin-page { display: none; }
+        .admin-page.active { display: block; }
+
+        .header-rule { border-top: 4px solid var(--swiss-navy); }
+        .section-rule { border-top: 1px solid var(--swiss-navy); }
+        
+        .sidebar-item {
+            @apply flex items-center space-x-3 px-6 py-3 border-l-4 border-transparent transition-all duration-200 cursor-pointer;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 0.7rem;
+            color: #94a3b8 !important;
+        }
+        .sidebar-item i {
+            @apply text-slate-500 transition-colors;
+        }
+        .sidebar-item.active {
+            @apply bg-white/5 border-primary text-white !important;
+        }
+        .sidebar-item.active i {
+            @apply text-primary;
+        }
+        .sidebar-item:hover:not(.active) {
+            @apply bg-white/5 text-white;
+        }
+        
+        /* Sidebar Scroll Fix */
+        #admin-sidebar-nav {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        #admin-sidebar-nav::-webkit-scrollbar { display: none; }
+        
+        .card-stat {
+            @apply border-t-4 border-[var(--swiss-navy)] pt-4 bg-white;
+        }
+        
+        .btn-primary {
+            @apply bg-[var(--swiss-navy)] text-white px-6 py-3 font-black uppercase tracking-tight text-xs hover:bg-black transition-all active:scale-95;
+        }
+        .btn-secondary {
+            @apply border-2 border-[var(--swiss-navy)] text-[var(--swiss-navy)] px-6 py-3 font-black uppercase tracking-tight text-xs hover:bg-[var(--swiss-navy)] hover:text-white transition-all active:scale-95;
+        }
+        .btn-danger {
+            @apply bg-[var(--swiss-red)] text-white px-4 py-2 font-black uppercase tracking-tight text-[10px] hover:opacity-90 transition-all;
+        }
+        
+        .topology-node {
+            @apply bg-[var(--swiss-gray)] border-l-4 border-[var(--swiss-navy)] p-4 transition-all;
+        }
+        .topology-node:hover {
+            @apply shadow-lg translate-y-[-2px];
+        }
+
+        .error-tag {
+            @apply bg-[var(--swiss-red)] text-white text-[10px] px-1.5 py-0.5 font-bold uppercase;
+        }
+
+        .spinner { display:inline-block; width:20px; height:20px; border:3px solid rgba(0,26,51,0.1); border-top-color:var(--swiss-navy); border-radius:50%; animation:spin 0.8s linear infinite; }
+        @keyframes spin { to{transform:rotate(360deg)} }
+
+        /* Timetable Grid - Swiss Style */
+        .tt-table { border-collapse: separate; border-spacing: 2px; width: 100%; table-layout: fixed; }
+        .tt-table th { @apply bg-[var(--swiss-navy)] text-white p-4 font-black uppercase text-[10px] tracking-widest text-center; }
+        .tt-day-label { @apply bg-[var(--swiss-gray)] text-[var(--swiss-navy)] font-black text-center align-middle uppercase text-xs border-r border-gray-200; width: 100px; height: 100px; }
+        .tt-cell { @apply p-3 bg-white border border-gray-100 min-h-[100px] align-top transition-all; }
+        .tt-cell:hover { @apply bg-gray-50 border-[var(--swiss-navy)]; }
+        .tt-code { @apply font-black text-sm block mb-1; color: var(--swiss-navy); }
+        .tt-teacher { @apply text-[10px] font-bold text-gray-500 block uppercase mb-2; }
+        .tt-room { @apply bg-[var(--swiss-navy)] text-white text-[9px] font-black px-2 py-0.5 uppercase inline-block; }
+        .tt-empty { @apply bg-gray-50/50; }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: var(--swiss-gray); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--swiss-navy); }
+
+        .fade-up { animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    </style>
+</head>
+<body class="min-h-screen">
+
+<!-- ═══════════════════════════════════════
+     VIEW: ROLE SELECTION
+═══════════════════════════════════════ -->
+<section id="view-role-selection" class="view-section active min-h-screen items-center justify-center p-12 bg-white">
+    <div class="max-w-7xl w-full fade-up">
+        <div class="mb-24">
+            <div class="w-16 h-2 bg-[var(--swiss-navy)] mb-6"></div>
+            <h1 class="text-9xl font-black uppercase tracking-tighter leading-[0.8] text-[var(--swiss-navy)] mb-8">
+                AI Timetable<br/>Portal.
+            </h1>
+            <p class="text-xl font-bold uppercase tracking-tight text-[var(--swiss-navy)] border-l-8 border-[var(--swiss-red)] pl-6">
+                Conflict-free scheduling powered by Genetic Algorithms<br/>
+                <span class="text-gray-400 text-sm">Automated Time Table Mapping AI</span>
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-1">
+            <button onclick="openAuth('admin')" class="group p-16 bg-[var(--swiss-gray)] hover:bg-[var(--swiss-navy)] hover:text-white transition-all duration-300 text-left border-l-4 border-[var(--swiss-navy)]">
+                <p class="text-[10px] font-black uppercase tracking-[0.3em] mb-12 opacity-50 group-hover:opacity-100 group-hover:text-[var(--swiss-red)] transition-all">Administrator</p>
+                <h2 class="text-4xl font-black uppercase tracking-tighter leading-none mb-4">Manage<br/>Data</h2>
+                <p class="text-xs font-bold uppercase tracking-tight opacity-60">Manage data and run AI engine</p>
+            </button>
+            <button onclick="openAuth('teacher')" class="group p-16 bg-[var(--swiss-gray)] hover:bg-[var(--swiss-navy)] hover:text-white transition-all duration-300 text-left border-l-4 border-[var(--swiss-navy)]">
+                <p class="text-[10px] font-black uppercase tracking-[0.3em] mb-12 opacity-50 group-hover:opacity-100 group-hover:text-[var(--swiss-red)] transition-all">Faculty</p>
+                <h2 class="text-4xl font-black uppercase tracking-tighter leading-none mb-4">Teaching<br/>Schedule</h2>
+                <p class="text-xs font-bold uppercase tracking-tight opacity-60">View personal teaching schedule</p>
+            </button>
+            <button onclick="openAuth('student')" class="group p-16 bg-[var(--swiss-gray)] hover:bg-[var(--swiss-navy)] hover:text-white transition-all duration-300 text-left border-l-4 border-[var(--swiss-navy)]">
+                <p class="text-[10px] font-black uppercase tracking-[0.3em] mb-12 opacity-50 group-hover:opacity-100 group-hover:text-[var(--swiss-red)] transition-all">Student</p>
+                <h2 class="text-4xl font-black uppercase tracking-tighter leading-none mb-4">Program<br/>Timetable</h2>
+                <p class="text-xs font-bold uppercase tracking-tight opacity-60">Access program-wise timetable</p>
+            </button>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════
+     VIEW: AUTH
+═══════════════════════════════════════ -->
+<section id="view-auth" class="view-section min-h-screen items-center justify-center p-12 bg-[var(--swiss-gray)]">
+    <div class="max-w-xl w-full fade-up">
+        <button onclick="showView('role-selection')" class="mb-12 flex items-center gap-2 font-black uppercase text-[10px] tracking-widest hover:text-primary transition-colors">
+            <span class="material-symbols-outlined text-lg">arrow_back</span>
+            Back to Home
+        </button>
+
+        <div class="bg-white p-16 border-t-8 border-[var(--swiss-navy)] shadow-2xl">
+            <div id="auth-tabs" class="hidden grid grid-cols-2 mb-12 border border-[var(--swiss-navy)]">
+                <button onclick="setAuthMode('login')" id="tab-login" class="py-4 text-[10px] font-black uppercase tracking-widest transition-all">Sign In</button>
+                <button onclick="setAuthMode('signup')" id="tab-signup" class="py-4 text-[10px] font-black uppercase tracking-widest transition-all">Sign Up</button>
+            </div>
+
+            <div class="mb-12">
+                <h2 id="auth-title" class="text-5xl font-black uppercase tracking-tighter leading-none mb-2">Sign In</h2>
+                <p id="auth-subtitle" class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Please enter your details to continue</p>
+            </div>
+
+            <form onsubmit="handleAuth(event)" class="space-y-8">
+                <div id="field-username" class="hidden border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Username</label>
+                    <input id="auth-username" type="text" class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase" placeholder="admin"/>
+                </div>
+                <div id="field-email" class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Email Address</label>
+                    <input id="auth-email" type="email" class="w-full border-0 p-0 text-xl font-black focus:ring-0" placeholder="user@school.edu"/>
+                </div>
+                <div id="signup-fields" class="hidden space-y-8">
+                    <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Full Name</label>
+                        <input id="auth-fullname" type="text" class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase"/>
+                    </div>
+                    <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Roll Number</label>
+                        <input id="auth-rollno" type="text" class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase"/>
+                    </div>
+                    <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Select Program</label>
+                        <select id="auth-program" class="w-full border-0 p-0 text-sm font-black focus:ring-0 uppercase bg-transparent"></select>
+                    </div>
+                </div>
+                <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2 relative">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Password</label>
+                    <input id="auth-password" type="password" class="w-full border-0 p-0 text-xl font-black focus:ring-0 pr-12" placeholder="••••••••"/>
+                    <button type="button" onclick="togglePasswordVisibility('auth-password', this)" class="absolute right-0 bottom-2 text-gray-400 hover:text-primary transition-colors">
+                        <span class="material-symbols-outlined">visibility</span>
+                    </button>
+                </div>
+
+                <button id="auth-btn" type="submit" class="btn-primary w-full py-5 text-sm">Login</button>
+            </form>
+            
+            <div id="auth-error" class="hidden mt-8 p-4 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-3">
+                <span class="material-symbols-outlined text-lg">priority_high</span>
+                <span id="auth-error-msg">Login Failed</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════
+     VIEW: ADMIN DASHBOARD
+═══════════════════════════════════════ -->
+<section id="view-admin" class="view-section min-h-screen bg-slate-50">
+    <aside id="admin-sidebar" class="w-64 bg-slate-900 text-white flex flex-col h-screen sticky top-0 border-r border-slate-800 transition-all origin-left">
+        <div class="p-8 border-b border-white/5">
+            <div class="flex items-center gap-4 text-white">
+                <i class="fa-solid fa-gear text-2xl text-primary"></i>
+                <div class="font-black text-lg leading-tight uppercase tracking-tight">Admin Panel</div>
+            </div>
+        </div>
+        <div id="admin-sidebar-nav" class="flex-1 overflow-y-auto py-4">
+            <nav class="space-y-1">
+                <a onclick="showAdminPage('dashboard')" id="nav-dashboard" class="sidebar-item active">
+                    <i class="fa-solid fa-chart-line text-sm w-5"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a onclick="showAdminPage('programs')" id="nav-programs" class="sidebar-item">
+                    <i class="fa-solid fa-graduation-cap text-sm w-5"></i>
+                    <span>Programs</span>
+                </a>
+                <a onclick="showAdminPage('teachers')" id="nav-teachers" class="sidebar-item">
+                    <i class="fa-solid fa-user-tie text-sm w-5"></i>
+                    <span>Faculty</span>
+                </a>
+                <a onclick="showAdminPage('subjects')" id="nav-subjects" class="sidebar-item">
+                    <i class="fa-solid fa-book-open text-sm w-5"></i>
+                    <span>Subjects</span>
+                </a>
+                <a onclick="showAdminPage('classrooms')" id="nav-classrooms" class="sidebar-item">
+                    <i class="fa-solid fa-door-open text-sm w-5"></i>
+                    <span>Classrooms</span>
+                </a>
+                <a onclick="showAdminPage('timeslots')" id="nav-timeslots" class="sidebar-item">
+                    <i class="fa-solid fa-clock text-sm w-5"></i>
+                    <span>Time Slots</span>
+                </a>
+                <a onclick="showAdminPage('generate')" id="nav-generate" class="sidebar-item">
+                    <i class="fa-solid fa-bolt text-sm w-5"></i>
+                    <span>AI Generator</span>
+                </a>
+                <a onclick="showAdminPage('timetable')" id="nav-timetable" class="sidebar-item">
+                    <i class="fa-solid fa-table-list text-sm w-5"></i>
+                    <span>Master Table</span>
+                </a>
+                <a onclick="showAdminPage('students')" id="nav-students" class="sidebar-item">
+                    <i class="fa-solid fa-user-graduate text-sm w-5"></i>
+                    <span>Students</span>
+                </a>
+            </nav>
+        </div>
+        <div class="p-6 border-t border-slate-800 space-y-6 bg-slate-900/50">
+            <div class="space-y-3">
+                <div class="flex justify-between text-[7px] font-black uppercase tracking-[0.2em] text-slate-500">
+                    <span id="sidebar-load-text">SYSTEM_LOAD: 0%</span>
+                    <span id="sidebar-load-perc">0%</span>
+                </div>
+                <div class="h-1 bg-white/5 overflow-hidden rounded-full">
+                    <div id="sidebar-load-bar" class="h-full bg-primary transition-all duration-1000" style="width: 0%"></div>
+                </div>
+            </div>
+            <button onclick="logout()" class="w-full py-3 bg-red-600/10 text-red-500 rounded-lg hover:bg-red-600 hover:text-white transition-all font-black text-[10px] uppercase tracking-[0.2em] border border-red-600/20 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-power-off"></i> LOGOUT
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 p-12 lg:p-20 overflow-y-auto bg-white">
+        <header class="mb-20">
+            <div class="header-rule mb-8"></div>
+            <div class="flex justify-between items-end">
+                <div>
+                    <h2 id="admin-page-title" class="text-7xl font-black uppercase tracking-tighter leading-none text-[var(--swiss-navy)]">Console</h2>
+                    <p class="text-sm font-bold mt-4 uppercase tracking-tight text-gray-400">Node_ID: 0x88A2 / CORE_ACTIVE</p>
+                </div>
+                <div class="flex flex-col items-end gap-4 border-l-4 border-[var(--swiss-red)] pl-6 py-2">
+                    <div class="flex gap-3 mb-2">
+                        <button onclick="exportExcel()" class="w-10 h-10 bg-slate-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm flex items-center justify-center" title="Export Excel">
+                            <i class="fa-solid fa-file-excel text-lg"></i>
+                        </button>
+                        <button onclick="exportPDF()" class="w-10 h-10 bg-slate-50 text-rose-600 rounded-lg hover:bg-rose-600 hover:text-white transition-all shadow-sm flex items-center justify-center" title="Export PDF">
+                            <i class="fa-solid fa-file-pdf text-lg"></i>
+                        </button>
+                        <button onclick="window.print()" class="w-10 h-10 bg-slate-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm flex items-center justify-center" title="Print View">
+                            <i class="fa-solid fa-print text-lg"></i>
+                        </button>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-black uppercase">System Admin</p>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase">Executive Controller</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-[var(--swiss-red)] animate-pulse"></span>
+                        <span class="text-[10px] font-black uppercase tracking-widest">Logic_Core: Online</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Pages -->
+        <div id="admin-page-dashboard" class="admin-page active">
+            <section id="admin-stats-container" class="grid grid-cols-1 md:grid-cols-4 gap-12 mb-24"></section>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <div class="card-stat p-8 bg-[var(--swiss-gray)]">
+                    <h3 class="text-xl font-black uppercase tracking-tight mb-8">System Recalibration</h3>
+                    <div class="flex gap-4">
+                        <button onclick="seedDemoData()" class="btn-primary flex-1">Reset & Load Architecture</button>
+                        <button onclick="showAdminPage('generate')" class="btn-secondary flex-1">Invoke AI Optimizer</button>
+                    </div>
+                </div>
+                <div class="card-stat p-8 bg-[var(--swiss-gray)]">
+                    <h3 class="text-xl font-black uppercase tracking-tight mb-8">Engine Status</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                            <span>Evolutionary Convergence</span>
+                            <span id="convergence-val">100%</span>
+                        </div>
+                        <div class="h-4 bg-gray-200 overflow-hidden">
+                            <div class="h-full bg-[var(--swiss-navy)]" style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="admin-page-generate" class="admin-page space-y-20">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-20">
+                <div class="lg:col-span-4">
+                    <h3 class="text-xl font-black uppercase tracking-tight mb-12 flex items-center gap-2">
+                        <span class="w-4 h-4 bg-[var(--swiss-navy)]"></span> Parameters
+                    </h3>
+                    <div class="space-y-12">
+                        <div class="border-b border-gray-200 pb-2">
+                            <label class="block text-[10px] font-black uppercase mb-1 text-gray-400">Target_Node</label>
+                            <select id="ga-program-id" class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase bg-transparent"></select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-8">
+                            <div class="border-b border-gray-200 pb-2">
+                                <label class="block text-[10px] font-black uppercase mb-1 text-gray-400">Population</label>
+                                <input id="ga-population" type="number" value="30" class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase"/>
+                            </div>
+                            <div class="border-b border-gray-200 pb-2">
+                                <label class="block text-[10px] font-black uppercase mb-1 text-gray-400">Generations</label>
+                                <input id="ga-generations" type="number" value="100" class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase"/>
+                            </div>
+                        </div>
+                        <button id="generate-btn" onclick="generateTimetable()" class="btn-primary w-full py-6">Initiate Sequence</button>
+                    </div>
+                </div>
+                <div class="lg:col-span-8">
+                    <div id="progress-card" class="hidden topology-node active mb-12">
+                        <div class="flex justify-between items-end mb-4">
+                            <p id="progress-label" class="text-sm font-black uppercase tracking-widest">Evolution Cycle active</p>
+                            <p id="progress-percent" class="text-3xl font-black tracking-tighter">0%</p>
+                        </div>
+                        <div class="h-6 bg-white/20">
+                            <div id="progress-bar" class="h-full bg-[var(--swiss-red)]" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div id="result-banner" class="hidden bg-[var(--swiss-gray)] border-t-8 border-[var(--swiss-navy)] p-12 mb-12"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="admin-page-timetable" class="admin-page space-y-12">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="text-4xl font-black uppercase tracking-tighter">Master Timetable</h3>
+                    <p class="text-xs font-bold text-gray-400 uppercase mt-1">Full System Schedule</p>
+                </div>
+                <div class="flex gap-4">
+                    <button onclick="exportExcel()" class="btn-secondary text-[10px]">Excel_Export</button>
+                    <button onclick="exportPDF()" class="btn-primary text-[10px]">PDF_Export</button>
+                </div>
+            </div>
+            <div class="bg-[var(--swiss-gray)] p-8 flex gap-8">
+                <select id="timetable-filter-program" onchange="loadTimetable(this.value)" class="flex-1 bg-white border-2 border-[var(--swiss-navy)] px-4 py-3 font-bold uppercase text-[10px] tracking-widest outline-none"></select>
+                <input type="text" oninput="filterTimetable(this.value)" placeholder="SEARCH VECTOR NODES..." class="w-64 bg-white border-2 border-[var(--swiss-navy)] px-4 py-3 font-bold uppercase text-[10px] tracking-widest outline-none"/>
+            </div>
+            <div id="admin-timetable-container" class="border-t-4 border-[var(--swiss-navy)] overflow-hidden"></div>
+        </div>
+
+        <!-- CRUD Dynamic Pages -->
+        <div id="admin-page-programs" class="admin-page"><div class="flex justify-between items-end mb-12"><div><h3 class="text-4xl font-black uppercase tracking-tighter">Programs</h3></div><button onclick="openModal('program')" class="btn-primary text-[10px]">Add Program</button></div><div class="section-rule overflow-hidden"><table class="w-full text-left"><thead class="bg-gray-50 border-b border-gray-100"><tr><th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest">Program Details</th><th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest">Type</th><th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest text-right">Actions</th></tr></thead><tbody id="programs-tbody"></tbody></table></div></div>
+        <div id="admin-page-teachers" class="admin-page"><div class="flex justify-between items-end mb-12"><div><h3 class="text-4xl font-black uppercase tracking-tighter">Faculty</h3></div><button onclick="openModal('teacher')" class="btn-primary text-[10px]">Add Teacher</button></div><div class="section-rule overflow-hidden"><table class="w-full text-left"><thead class="bg-gray-50 border-b border-gray-100"><tr><th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest">Name/Email</th><th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest text-center">Status</th><th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest text-right">Actions</th></tr></thead><tbody id="teachers-tbody"></tbody></table></div></div>
+        <div id="admin-page-subjects" class="admin-page"><div class="flex justify-between items-end mb-12"><div><h3 class="text-4xl font-black uppercase tracking-tighter">Subjects</h3></div><button onclick="openModal('subject')" class="btn-primary text-[10px]">Add Subject</button></div><div class="section-rule overflow-hidden"><table class="w-full text-left"><thead class="bg-gray-50 border-b border-gray-100"><tr><th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest">Subject</th><th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest text-right">Actions</th></tr></thead><tbody id="subjects-tbody"></tbody></table></div></div>
+        <div id="admin-page-classrooms" class="admin-page"><div class="flex justify-between items-end mb-12"><div><h3 class="text-4xl font-black uppercase tracking-tighter">Classrooms</h3></div><button onclick="openModal('classroom')" class="btn-primary text-[10px]">Add Room</button></div><div class="section-rule overflow-hidden"><table class="w-full text-left"><thead class="bg-gray-50 border-b border-gray-100"><tr><th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest">Room Details</th><th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest text-right">Actions</th></tr></thead><tbody id="classrooms-tbody"></tbody></table></div></div>
+        <div id="admin-page-students" class="admin-page">
+            <div class="flex justify-between items-end mb-12">
+                <div>
+                    <h3 class="text-4xl font-black uppercase tracking-tighter">Registered Students</h3>
+                </div>
+                <button onclick="openAddStudentModal()" class="btn-primary text-[10px]">Add Student</button>
+            </div>
+            <div class="section-rule overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-50 border-b border-gray-100">
+                        <tr>
+                            <th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest">Student Info</th>
+                            <th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest">Roll Number</th>
+                            <th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest">Program</th>
+                            <th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="students-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div id="admin-page-timeslots" class="admin-page"><div class="flex justify-between items-end mb-12"><div><h3 class="text-4xl font-black uppercase tracking-tighter">Time Slots</h3></div><button onclick="openModal('timeslot')" class="btn-primary text-[10px]">Add Slot</button></div><div class="section-rule overflow-hidden"><table class="w-full text-left"><thead class="bg-gray-50 border-b border-gray-100"><tr><th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest">Day/Time</th><th class="px-8 py-6 font-black uppercase text-[10px] tracking-widest text-right">Actions</th></tr></thead><tbody id="timeslots-tbody"></tbody></table></div></div>
+    </main>
+</section>
+
+<!-- ═══════════════════════════════════════
+     VIEW: PORTAL
+═══════════════════════════════════════ -->
+<section id="view-portal" class="view-section min-h-screen flex-col bg-white">
+    <header class="bg-[var(--swiss-navy)] text-white p-12 lg:p-16 flex justify-between items-center z-50">
+        <div class="flex items-center gap-12">
+            <div id="portal-user-icon" class="w-20 h-20 bg-white text-[var(--swiss-navy)] flex items-center justify-center text-4xl font-black shadow-[8px_8px_0_var(--swiss-red)]">
+                <i class="fa-solid fa-circle-user"></i>
+            </div>
+            <div>
+                <h1 id="portal-user-name" class="text-5xl font-black uppercase tracking-tighter leading-none mb-3">User_Identity</h1>
+                <div id="portal-user-meta" class="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--swiss-red)]">Verified Access Node</div>
+            </div>
+        </div>
+        <div class="flex gap-6">
+            <button onclick="exportPortalPDF()" class="btn-secondary border-white text-white hover:bg-white hover:text-[var(--swiss-navy)] flex items-center gap-2">
+                <span class="material-symbols-outlined text-lg">picture_as_pdf</span>
+                Export_Logic
+            </button>
+            <button onclick="logout()" class="btn-primary bg-white text-[var(--swiss-navy)] hover:bg-[var(--swiss-red)] hover:text-white uppercase tracking-widest">Logout</button>
+        </div>
+    </header>
+
+    <main class="flex-1 p-12 lg:p-20 overflow-y-auto">
+        <div class="max-w-screen-2xl mx-auto">
+            <div class="flex justify-between items-end mb-16">
+                <div>
+                    <h2 id="portal-display-title" class="text-8xl font-black uppercase tracking-tighter leading-[0.85] text-[var(--swiss-navy)] mb-6">Class<br/>Timetable</h2>
+                    <p id="portal-display-subtitle" class="text-xl font-bold uppercase tracking-tight text-gray-400">AI Optimized Conflict-Free Timetable</p>
+                </div>
+                <div class="flex items-center gap-4 border-l-4 border-[var(--swiss-navy)] pl-8 py-2">
+                    <div class="text-[10px] font-black uppercase leading-tight">
+                        <p>Matrix_Status: <span class="text-[var(--swiss-red)]">OPTIMIZED</span></p>
+                        <p>Sync_Pulse: 1.2ms</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="portal-timetable-container" class="border-t-8 border-[var(--swiss-navy)] shadow-2xl mb-24 overflow-hidden">
+                <div class="p-40 text-center text-gray-200">
+                    <div class="spinner mb-8"></div>
+                    <p class="font-black uppercase tracking-[0.5em] text-sm">Synchronizing Streams...</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-16 pb-32">
+                <section>
+                    <h3 class="text-xl font-black uppercase tracking-tight mb-8 flex items-center gap-3">
+                        <span class="w-4 h-4 bg-[var(--swiss-navy)]"></span>
+                        Teacher
+                    </h3>
+                    <div id="portal-teacher-legend" class="grid grid-cols-1 gap-1"></div>
+                </section>
+                <section>
+                    <h3 class="text-xl font-black uppercase tracking-tight mb-8 flex items-center gap-3">
+                        <span class="w-4 h-4 bg-[var(--swiss-navy)]"></span>
+                        Subject
+                    </h3>
+                    <div id="portal-subject-legend" class="grid grid-cols-1 gap-1"></div>
+                </section>
+            </div>
+        </div>
+    </main>
+</section>
+
+<!-- Add Subject Modal -->
+<div id="add-subject-modal" class="hidden fixed inset-0 bg-[var(--swiss-navy)]/90 backdrop-blur-md z-[10000] flex items-center justify-center p-6">
+    <div class="bg-white w-full max-w-xl shadow-2xl border-t-8 border-[var(--swiss-navy)] fade-up">
+        <div class="p-12">
+            <div class="flex justify-between items-start mb-12">
+                <div>
+                    <h3 class="text-4xl font-black uppercase tracking-tighter">New Subject</h3>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">Initialize Module Architecture</p>
+                </div>
+                <button onclick="closeAddSubjectModal()" class="w-12 h-12 bg-gray-100 hover:bg-[var(--swiss-red)] hover:text-white transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form onsubmit="saveNewSubject(event)" class="space-y-8">
+                <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Subject Name</label>
+                    <input id="new-subject-name" type="text" required class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase"/>
+                </div>
+                <div class="grid grid-cols-2 gap-8">
+                    <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Subject Code</label>
+                        <input id="new-subject-code" type="text" required class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase"/>
+                    </div>
+                    <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Hours / Week</label>
+                        <select id="new-subject-hours" class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase bg-transparent">
+                            <option value="1">1 HR</option>
+                            <option value="2">2 HRS</option>
+                            <option value="3" selected>3 HRS</option>
+                            <option value="4">4 HRS</option>
+                            <option value="5">5 HRS</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Assign to Programs</label>
+                    <div id="new-subject-programs-list" class="max-h-32 overflow-y-auto space-y-2 custom-scrollbar pr-2">
+                        <!-- Program checkboxes injected here -->
+                    </div>
+                </div>
+
+                <div class="flex gap-4 pt-4">
+                    <button type="submit" class="btn-primary flex-1 py-5 text-[10px]">Create Subject</button>
+                    <button type="button" onclick="closeAddSubjectModal()" class="btn-secondary flex-1 py-5 text-[10px]">Abort</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Subject Modal -->
+<div id="edit-subject-modal" class="hidden fixed inset-0 bg-[var(--swiss-navy)]/90 backdrop-blur-md z-[10000] flex items-center justify-center p-6">
+    <div class="bg-white w-full max-w-xl shadow-2xl border-t-8 border-[var(--swiss-navy)] fade-up">
+        <div class="p-12">
+            <div class="flex justify-between items-start mb-12">
+                <div>
+                    <h3 class="text-4xl font-black uppercase tracking-tighter">Edit Subject</h3>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">Modify Module configuration</p>
+                </div>
+                <button onclick="closeEditSubjectModal()" class="w-12 h-12 bg-gray-100 hover:bg-[var(--swiss-red)] hover:text-white transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form onsubmit="saveSubjectEdit(event)" class="space-y-8">
+                <input type="hidden" id="edit-subject-id"/>
+                <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Subject Name</label>
+                    <input id="edit-subject-name" type="text" required class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase"/>
+                </div>
+                <div class="grid grid-cols-2 gap-8">
+                    <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Subject Code</label>
+                        <input id="edit-subject-code" type="text" required class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase"/>
+                    </div>
+                    <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Hours / Week</label>
+                        <select id="edit-subject-hours" class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase bg-transparent">
+                            <option value="1">1 HR</option>
+                            <option value="2">2 HRS</option>
+                            <option value="3">3 HRS</option>
+                            <option value="4">4 HRS</option>
+                            <option value="5">5 HRS</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Assign to Programs</label>
+                    <div id="edit-subject-programs-list" class="max-h-32 overflow-y-auto space-y-2 custom-scrollbar pr-2">
+                        <!-- Program checkboxes injected here -->
+                    </div>
+                </div>
+
+                <div class="flex gap-4 pt-4">
+                    <button type="submit" id="save-subject-edit-btn" class="btn-primary flex-1 py-5 text-[10px]">Update Subject</button>
+                    <button type="button" onclick="closeEditSubjectModal()" class="btn-secondary flex-1 py-5 text-[10px]">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Subject Mapping Modal -->
+<div id="subject-mapping-modal" class="hidden fixed inset-0 bg-[var(--swiss-navy)]/90 backdrop-blur-md z-[11000] flex items-center justify-center p-6">
+    <div class="bg-white w-full max-w-2xl shadow-2xl border-t-8 border-primary fade-up">
+        <div class="p-12">
+            <div class="flex justify-between items-start mb-12">
+                <div>
+                    <h3 id="subject-mapping-title" class="text-4xl font-black uppercase tracking-tighter">Subject Assignment</h3>
+                    <p id="subject-mapping-subtitle" class="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">Map Expert to Specific Program Modules</p>
+                </div>
+                <button onclick="closeSubjectMappingModal()" class="w-12 h-12 bg-gray-100 hover:bg-[var(--swiss-red)] hover:text-white transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div id="subject-mapping-options" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[40vh] overflow-y-auto mb-12 pr-4 custom-scrollbar">
+                <!-- Subjects will be injected here -->
+            </div>
+
+            <div class="flex gap-4">
+                <button id="save-subject-mapping-btn" class="btn-primary flex-1 py-5">Update Module Assignment</button>
+                <button onclick="closeSubjectMappingModal()" class="btn-secondary flex-1 py-5">Back to Programs</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Faculty Modal -->
+<div id="edit-teacher-modal" class="hidden fixed inset-0 bg-[var(--swiss-navy)]/90 backdrop-blur-md z-[10000] flex items-center justify-center p-6">
+    <div class="bg-white w-full max-w-xl shadow-2xl border-t-8 border-[var(--swiss-navy)] fade-up">
+        <div class="p-12">
+            <div class="flex justify-between items-start mb-12">
+                <div>
+                    <h3 class="text-4xl font-black uppercase tracking-tighter">Edit Faculty</h3>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">Update Expert Node Configuration</p>
+                </div>
+                <button onclick="closeEditTeacherModal()" class="w-12 h-12 bg-gray-100 hover:bg-[var(--swiss-red)] hover:text-white transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="edit-teacher-form" onsubmit="saveTeacherEdit(event)" class="space-y-8">
+                <input type="hidden" id="edit-teacher-id"/>
+                <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Expert Identity (Name)</label>
+                    <input id="edit-teacher-name" type="text" required class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase"/>
+                </div>
+                <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Network Endpoint (Email)</label>
+                    <input id="edit-teacher-email" type="email" required class="w-full border-0 p-0 text-xl font-black focus:ring-0"/>
+                </div>
+                <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Core Department</label>
+                    <input id="edit-teacher-dept" type="text" required class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase"/>
+                </div>
+
+                <div class="flex gap-4 pt-4">
+                    <button type="submit" id="save-teacher-edit-btn" class="btn-primary flex-1 py-5 text-[10px]">Update Profile</button>
+                    <button type="button" onclick="closeEditTeacherModal()" class="btn-secondary flex-1 py-5 text-[10px]">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Mapping Modal -->
+<div id="mapping-modal" class="hidden fixed inset-0 bg-[var(--swiss-navy)]/90 backdrop-blur-md z-[10000] flex items-center justify-center p-6">
+    <div class="bg-white w-full max-w-2xl shadow-2xl border-t-8 border-[var(--swiss-red)] fade-up">
+        <div class="p-12">
+            <div class="flex justify-between items-start mb-12">
+                <div>
+                    <h3 id="mapping-modal-title" class="text-4xl font-black uppercase tracking-tighter">Protocol Mapping</h3>
+                    <p id="mapping-modal-subtitle" class="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">Map Expert to Multiple Academic Layers</p>
+                </div>
+                <button onclick="closeMappingModal()" class="w-12 h-12 bg-gray-100 hover:bg-[var(--swiss-red)] hover:text-white transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div id="mapping-options" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[40vh] overflow-y-auto mb-12 pr-4 custom-scrollbar">
+                <!-- Programs will be injected here -->
+            </div>
+
+            <div class="flex gap-4">
+                <button id="save-mapping-btn" class="btn-primary flex-1 py-5">Update Mapping Configuration</button>
+                <button onclick="closeMappingModal()" class="btn-secondary flex-1 py-5">Abort Sequence</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Time Slot Modal -->
+<div id="edit-timeslot-modal" class="hidden fixed inset-0 bg-[var(--swiss-navy)]/90 backdrop-blur-md z-[10000] flex items-center justify-center p-6">
+    <div class="bg-white w-full max-w-xl shadow-2xl border-t-8 border-[var(--swiss-navy)] fade-up">
+        <div class="p-12">
+            <div class="flex justify-between items-start mb-12">
+                <div>
+                    <h3 class="text-4xl font-black uppercase tracking-tighter">Edit Time Slot</h3>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">Modify Temporal Vector</p>
+                </div>
+                <button onclick="closeEditTimeslotModal()" class="w-12 h-12 bg-gray-100 hover:bg-[var(--swiss-red)] hover:text-white transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form onsubmit="saveTimeslotEdit(event)" class="space-y-8">
+                <input type="hidden" id="edit-timeslot-id"/>
+                <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Day of Week</label>
+                    <select id="edit-timeslot-day" required class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase bg-transparent">
+                        <option value="Monday">Monday</option>
+                        <option value="Tuesday">Tuesday</option>
+                        <option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option>
+                        <option value="Friday">Friday</option>
+                        <option value="Saturday">Saturday</option>
+                        <option value="Sunday">Sunday</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-8">
+                    <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Start Time</label>
+                        <input id="edit-timeslot-start" type="time" required class="w-full border-0 p-0 text-xl font-black focus:ring-0"/>
+                    </div>
+                    <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">End Time</label>
+                        <input id="edit-timeslot-end" type="time" required class="w-full border-0 p-0 text-xl font-black focus:ring-0"/>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 pt-4">
+                    <button type="submit" id="save-timeslot-edit-btn" class="btn-primary flex-1 py-5 text-[10px]">Update Slot</button>
+                    <button type="button" onclick="closeEditTimeslotModal()" class="btn-secondary flex-1 py-5 text-[10px]">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Student Modal -->
+<div id="edit-student-modal" class="hidden fixed inset-0 bg-[var(--swiss-navy)]/90 backdrop-blur-md z-[10000] flex items-center justify-center p-6">
+    <div class="bg-white w-full max-w-xl shadow-2xl border-t-8 border-[var(--swiss-navy)] fade-up">
+        <div class="p-12">
+            <div class="flex justify-between items-start mb-12">
+                <div>
+                    <h3 class="text-4xl font-black uppercase tracking-tighter">Edit Student</h3>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">Modify Stakeholder Node</p>
+                </div>
+                <button onclick="closeEditStudentModal()" class="w-12 h-12 bg-gray-100 hover:bg-[var(--swiss-red)] hover:text-white transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form onsubmit="saveStudentEdit(event)" class="space-y-8">
+                <input type="hidden" id="edit-student-id"/>
+                <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Full Name</label>
+                    <input id="edit-student-name" type="text" required class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase"/>
+                </div>
+                <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Email Address</label>
+                    <input id="edit-student-email" type="email" required class="w-full border-0 p-0 text-xl font-black focus:ring-0"/>
+                </div>
+                <div class="grid grid-cols-2 gap-8">
+                    <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Roll Number</label>
+                        <input id="edit-student-roll" type="text" required class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase"/>
+                    </div>
+                    <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Select Program</label>
+                        <select id="edit-student-program" required class="w-full border-0 p-0 text-sm font-black focus:ring-0 uppercase bg-transparent"></select>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 pt-4">
+                    <button type="submit" id="save-student-edit-btn" class="btn-primary flex-1 py-5 text-[10px]">Update Student</button>
+                    <button type="button" onclick="closeEditStudentModal()" class="btn-secondary flex-1 py-5 text-[10px]">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Student Modal -->
+<div id="add-student-modal" class="hidden fixed inset-0 bg-[var(--swiss-navy)]/90 backdrop-blur-md z-[10000] flex items-center justify-center p-6">
+    <div class="bg-white w-full max-w-xl shadow-2xl border-t-8 border-[var(--swiss-navy)] fade-up">
+        <div class="p-12">
+            <div class="flex justify-between items-start mb-12">
+                <div>
+                    <h3 class="text-4xl font-black uppercase tracking-tighter">New Student</h3>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">Manual Stakeholder Entry</p>
+                </div>
+                <button onclick="closeAddStudentModal()" class="w-12 h-12 bg-gray-100 hover:bg-[var(--swiss-red)] hover:text-white transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form onsubmit="saveNewStudent(event)" class="space-y-8">
+                <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Full Name</label>
+                    <input id="new-student-name" type="text" required class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase"/>
+                </div>
+                <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Email Address</label>
+                    <input id="new-student-email" type="email" required class="w-full border-0 p-0 text-xl font-black focus:ring-0"/>
+                </div>
+                <div class="grid grid-cols-2 gap-8">
+                    <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Roll Number</label>
+                        <input id="new-student-roll" type="text" required class="w-full border-0 p-0 text-xl font-black focus:ring-0 uppercase"/>
+                    </div>
+                    <div class="border-b-2 border-gray-200 focus-within:border-primary transition-all py-2">
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Select Program</label>
+                        <select id="new-student-program" required class="w-full border-0 p-0 text-sm font-black focus:ring-0 uppercase bg-transparent"></select>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 pt-4">
+                    <button type="submit" id="save-student-btn" class="btn-primary flex-1 py-5 text-[10px]">Register Student</button>
+                    <button type="button" onclick="closeAddStudentModal()" class="btn-secondary flex-1 py-5 text-[10px]">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Engine -->
+<div id="toast-container" class="fixed bottom-12 right-12 flex flex-col gap-4 z-[9999]"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
