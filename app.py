@@ -1412,4 +1412,16 @@ def serve(path):
     if path != "" and os.path.exists(os.path.join(app.static_folder, path)): return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, "index.html")
 
-if __name__ == "__main__": app.run(debug=False, port=5000, use_reloader=False)
+if __name__ == "__main__":
+    # Get configuration from environment
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
+    
+    # Run the app
+    app.run(
+        host="0.0.0.0",
+        port=port,
+        debug=debug,
+        use_reloader=False
+    )
