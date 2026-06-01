@@ -5,7 +5,7 @@
 
 ---
 
-## 🚀 Key Features
+##  Key Features
 
 ### 1. AI Optimization Engine
 *   **Genetic Algorithm Core**: Implements evolutionary computing (Selection, Crossover, Mutation) to generate near-perfect schedules.
@@ -25,7 +25,7 @@
 
 ---
 
-## 🛠️ Technical Stack
+##  Technical Stack
 
 *   **Backend**: Python / Flask (Scalable Micro-service architecture)
 *   **Database**: SQLite with SQLAlchemy ORM
@@ -36,7 +36,7 @@
 
 ---
 
-## 📊 Evolutionary Strategy (The "AI Logic")
+##  Evolutionary Strategy (The "AI Logic")
 
 The system treats a full timetable as a **Chromosome**.
 1.  **Selection**: Uses Tournament Selection to pick the strongest schedules.
@@ -49,7 +49,7 @@ The system treats a full timetable as a **Chromosome**.
 
 ---
 
-## ⚙️ Installation & Deployment
+##  Installation & Deployment
 
 1. **Clone the Registry**:
    ```bash
@@ -74,11 +74,11 @@ The system treats a full timetable as a **Chromosome**.
 
 ---
 
-## 🔑 Access Credentials (Demo)
+##  Access Credentials (Demo)
 *   **Administrator**: `admin` / `admin123`
 *   **Student/Faculty**: Use "Load Demo Data" in Admin Panel to populate active nodes (Default Password: `password123`).
 
 ---
 
-**Developed by [Your Name]**  
-*Submitted as a Major Project for 4th Year Engineering Curriculum.*
+**Developed by [HIMANSHU KUMAR RAI]**  
+
